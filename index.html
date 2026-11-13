@@ -236,7 +236,6 @@ function renderMonth(){
   var list = evOn(V.sel);
   var body = list.length ? list.map(function(e){ return evHtml(e, now); }).join("") : '<div class="empty">予定はありません</div>';
   return '<div class="hdr"><div style="display:flex;align-items:center"><button class="ib" id="pm" aria-label="前の月"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button><h1>'+y+'年'+m+'月</h1><button class="ib" id="nm" aria-label="次の月"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></button></div><button class="tag" id="today" style="background:transparent;height:30px">今日</button></div>'
-    + nx
     + '<div class="sec"><div class="lbl">今月の休場・短縮</div><div class="hband">'+band+'</div></div>'
     + '<div class="wk">'+WD.map(function(w){ return '<span>'+w+'</span>'; }).join("")+'</div>'
     + '<div class="grid">'+cells+'</div>'
@@ -309,8 +308,11 @@ main.addEventListener("change", function(ev){
 document.getElementById("nav").addEventListener("click", function(ev){
   var b = ev.target.closest("button"); if(!b) return; V.view = b.getAttribute("data-v"); render();
 });
-setInterval(function(){ var c = document.getElementById("cd"); if(c) c.textContent = cd(+c.dataset.ms); }, 15000);
-document.addEventListener("visibilitychange", function(){ if(!document.hidden) render(true); });
+// 日付が変わったら今日に戻す
+V.today = V.sel;
+function checkDay(){ var t = jstNow(), d = ymd(t.y,t.m,t.d); if(d !== V.today){ V.today = d; V.y = t.y; V.m = t.m; V.sel = d; render(); } }
+setInterval(checkDay, 60000);
+document.addEventListener("visibilitychange", function(){ if(!document.hidden){ checkDay(); render(true); } });
 render();
 
 if("serviceWorker" in navigator && location.protocol === "https:" && window.top === window.self){
