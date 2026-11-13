@@ -118,14 +118,16 @@ nav svg{width:22px;height:22px}
 </nav>
 <script src="data.js"></script>
 <script src="boj_auto.js" onerror="void 0"></script>
+<script src="ff_auto.js" onerror="void 0"></script>
 <script>
 (function(){
 "use strict";
-var CAT = { boj:"日銀", ind:"経済指標", cb:"FOMC", hol:"休場" };
-var CC = { JP:"日本", US:"米国", UK:"英国" };
+var CAT = { boj:"日銀", ind:"経済指標", cb:"中銀・要人", hol:"休場" };
+var CC = { JPY:"日本", USD:"米国", EUR:"ユーロ圏", GBP:"英国", AUD:"豪州", NZD:"NZ", CAD:"カナダ", CHF:"スイス", CNY:"中国" };
+var CCMAP = { JP:"JPY", US:"USD", UK:"GBP" };
 var BOJSUB = { mpm:"決定会合・総裁会見", gov:"総裁・副総裁の講演・挨拶", member:"審議委員の講演・挨拶・会見", doc:"主な意見・議事要旨" };
 var WD = ["日","月","火","水","木","金","土"];
-var DEF = { theme:"dark", cc:{JP:true,US:true,UK:true}, cat:{boj:true,ind:true,cb:true,hol:true}, boj:{mpm:true,gov:true,member:true,doc:true}, star:1 };
+var DEF = { theme:"dark", cc:{JPY:true,USD:true,EUR:true,GBP:true,AUD:true,NZD:true,CAD:true,CHF:true,CNY:true}, cat:{boj:true,ind:true,cb:true,hol:true}, boj:{mpm:true,gov:true,member:true,doc:true}, star:1 };
 
 function load(){ try{ var s = JSON.parse(localStorage.getItem("tcal") || "null"); if(s){ return { theme:s.theme||DEF.theme, cc:Object.assign({},DEF.cc,s.cc), cat:Object.assign({},DEF.cat,s.cat), boj:Object.assign({},DEF.boj,s.boj), star:s.star||1 }; } }catch(e){} return JSON.parse(JSON.stringify(DEF)); }
 function save(){ try{ localStorage.setItem("tcal", JSON.stringify(S)); }catch(e){} }
@@ -151,21 +153,54 @@ function toJst(date, time, tz){
 
 // ---- データ正規化 ----
 var ALL = [];
+// ---- Forex Factory 英語名 → 日本語 ----
+var JA = {"Non-Farm Employment Change":"非農業部門雇用者数","Unemployment Rate":"失業率","Average Hourly Earnings m/m":"平均時給（前月比）","CPI m/m":"CPI（前月比）","CPI y/y":"CPI（前年比）","Core CPI m/m":"コアCPI（前月比）","Core CPI y/y":"コアCPI（前年比）","CPI q/q":"CPI（前期比）","Trimmed Mean CPI q/q":"トリム平均CPI（前期比）","PPI m/m":"PPI（前月比）","Core PPI m/m":"コアPPI（前月比）","PPI y/y":"PPI（前年比）","Retail Sales m/m":"小売売上高（前月比）","Core Retail Sales m/m":"コア小売売上高（前月比）","Retail Sales y/y":"小売売上高（前年比）","Unemployment Claims":"新規失業保険申請件数","Advance GDP q/q":"GDP速報値（前期比）","Prelim GDP q/q":"GDP改定値（前期比）","Final GDP q/q":"GDP確定値（前期比）","GDP q/q":"GDP（前期比）","GDP m/m":"GDP（前月比）","GDP y/y":"GDP（前年比）","Prelim GDP Price Index q/q":"GDP価格指数（前期比）","Core PCE Price Index m/m":"コアPCE価格指数（前月比）","Core PCE Price Index y/y":"コアPCE価格指数（前年比）","Personal Spending m/m":"個人消費支出（前月比）","Personal Income m/m":"個人所得（前月比）","ISM Manufacturing PMI":"ISM製造業景況指数","ISM Services PMI":"ISM非製造業景況指数","ISM Manufacturing Prices":"ISM製造業 価格指数","Flash Manufacturing PMI":"製造業PMI速報値","Flash Services PMI":"サービス業PMI速報値","Manufacturing PMI":"製造業PMI","Services PMI":"サービス業PMI","Final Manufacturing PMI":"製造業PMI確報値","Final Services PMI":"サービス業PMI確報値","Prelim UoM Consumer Sentiment":"ミシガン大消費者態度指数（速報）","Revised UoM Consumer Sentiment":"ミシガン大消費者態度指数（確報）","Prelim UoM Inflation Expectations":"ミシガン大期待インフレ率（速報）","Revised UoM Inflation Expectations":"ミシガン大期待インフレ率（確報）","CB Consumer Confidence":"コンファレンスボード消費者信頼感","JOLTS Job Openings":"JOLTS求人件数","ADP Non-Farm Employment Change":"ADP雇用者数","Challenger Job Cuts y/y":"チャレンジャー人員削減数","Durable Goods Orders m/m":"耐久財受注（前月比）","Core Durable Goods Orders m/m":"コア耐久財受注（前月比）","Building Permits":"建設許可件数","Housing Starts":"住宅着工件数","Existing Home Sales":"中古住宅販売件数","New Home Sales":"新築住宅販売件数","Pending Home Sales m/m":"中古住宅販売保留（前月比）","Empire State Manufacturing Index":"NY連銀製造業景気指数","Philly Fed Manufacturing Index":"フィラデルフィア連銀製造業景気指数","Richmond Manufacturing Index":"リッチモンド連銀製造業指数","Industrial Production m/m":"鉱工業生産（前月比）","Prelim Industrial Production m/m":"鉱工業生産速報（前月比）","Trade Balance":"貿易収支","Current Account":"経常収支","Federal Funds Rate":"FF金利（政策金利）","FOMC Statement":"FOMC声明","FOMC Press Conference":"FOMC議長会見","FOMC Meeting Minutes":"FOMC議事要旨","FOMC Economic Projections":"FOMC経済見通し","Beige Book":"ベージュブック","Crude Oil Inventories":"原油在庫","Natural Gas Storage":"天然ガス在庫","Employment Cost Index q/q":"雇用コスト指数（前期比）","Import Prices m/m":"輸入物価（前月比）","Bank Holiday":"銀行休業日","Treasury Currency Report":"米財務省為替報告書","10-y Bond Auction":"10年債入札","30-y Bond Auction":"30年債入札","Main Refinancing Rate":"ECB政策金利（主要リファイナンス金利）","Monetary Policy Statement":"金融政策声明","ECB Press Conference":"ECB総裁会見","Official Bank Rate":"BOE政策金利","MPC Official Bank Rate Votes":"BOE政策金利 投票内訳","Cash Rate":"RBA政策金利","RBA Rate Statement":"RBA声明","RBA Monetary Policy Statement":"RBA金融政策報告","RBA Press Conference":"RBA総裁会見","Official Cash Rate":"RBNZ政策金利","RBNZ Rate Statement":"RBNZ声明","RBNZ Press Conference":"RBNZ総裁会見","Overnight Rate":"BOC政策金利","BOC Rate Statement":"BOC声明","BOC Press Conference":"BOC総裁会見","SNB Policy Rate":"SNB政策金利","SNB Monetary Policy Assessment":"SNB金融政策評価","SNB Press Conference":"SNB会見","BOJ Policy Rate":"日銀政策金利","1-y Loan Prime Rate":"1年物LPR","5-y Loan Prime Rate":"5年物LPR","Claimant Count Change":"失業保険申請件数","Employment Change":"雇用者数変化","Employment Change q/q":"雇用者数変化（前期比）","Wage Price Index q/q":"賃金指数（前期比）","Average Earnings Index 3m/y":"平均賃金（3か月・前年比）","German ifo Business Climate":"独ifo景況感指数","German ZEW Economic Sentiment":"独ZEW景況感指数","ZEW Economic Sentiment":"ZEW景況感指数","Tokyo Core CPI y/y":"東京都区部コアCPI（前年比）","National Core CPI y/y":"全国コアCPI（前年比）","Tankan Manufacturing Index":"日銀短観 大企業製造業","Tankan Non-Manufacturing Index":"日銀短観 大企業非製造業","Household Spending y/y":"家計支出（前年比）","Caixin Manufacturing PMI":"財新製造業PMI","Caixin Services PMI":"財新サービス業PMI","Sentix Investor Confidence":"センティクス投資家信頼感","GfK Consumer Climate":"GfK消費者信頼感","Consumer Confidence":"消費者信頼感","Westpac Consumer Sentiment":"ウエストパック消費者信頼感","NAB Business Confidence":"NAB企業信頼感","ANZ Business Confidence":"ANZ企業信頼感","Ivey PMI":"Ivey PMI","Retail Sales q/q":"小売売上高（前期比）","Prelim CPI m/m":"CPI速報（前月比）","Prelim CPI y/y":"CPI速報（前年比）","Flash CPI y/y":"CPI速報（前年比）","Core Flash CPI y/y":"コアCPI速報（前年比）","Industrial Production y/y":"鉱工業生産（前年比）","Fixed Asset Investment ytd/y":"固定資産投資（年初来・前年比）","New Loans":"新規融資","M2 Money Stock y/y":"M2マネーストック（前年比）","Spending y/y":"支出（前年比）","Economy Watchers Sentiment":"景気ウォッチャー調査","Core Machinery Orders m/m":"コア機械受注（前月比）","Prelim Machine Tool Orders y/y":"工作機械受注速報（前年比）","BOJ Core CPI y/y":"日銀版コアCPI（前年比）","SPPI y/y":"企業向けサービス価格指数（前年比）","Unemployment Rate q/q":"失業率（前期比）"};
+var JAWORD = [["Fed Chair ","FRB議長 "],["FOMC Member ","FOMCメンバー "],["ECB President ","ECB総裁 "],["BOE Gov ","BOE総裁 "],["BOJ Gov ","日銀総裁 "],["RBA Gov ","RBA総裁 "],["RBNZ Gov ","RBNZ総裁 "],["BOC Gov ","BOC総裁 "],["SNB Chairman ","SNB総裁 "],["German ","独 "],["French ","仏 "],["Italian ","伊 "],["Spanish ","西 "],["Treasury Sec ","米財務長官 "],["President ","大統領 "]];
+var SUFFIX = [[" m/m","（前月比）"],[" q/q","（前期比）"],[" y/y","（前年比）"]];
+function ja(t){
+  if(JA[t]) return JA[t];
+  var head = "", rest = t;
+  for(var i=0;i<JAWORD.length;i++){ if(rest.indexOf(JAWORD[i][0])===0){ head = JAWORD[i][1]; rest = rest.slice(JAWORD[i][0].length); break; } }
+  if(JA[rest]) return head + JA[rest];
+  var m = rest.match(/^(.*) Speaks$/); if(m) return head + m[1] + " 発言";
+  for(var k=0;k<SUFFIX.length;k++){ var sf = SUFFIX[k][0]; if(rest.slice(-sf.length)===sf){ var base = rest.slice(0,-sf.length); return head + (JA[base]||base) + SUFFIX[k][1]; } }
+  return head + rest;
+}
+
+// ---- 予定データをまとめる ----
+var HOL = {};
+function addHol(o){ ALL.push(o); (HOL[o.date] = HOL[o.date] || []).push(o); }
+var FF = window.TCAL_FF || [];
+var FFDAYS = {}; FF.forEach(function(e){ if(!e.hol) FFDAYS[e.d] = 1; });
 var SEEN = {};
 (window.TCAL_EVENTS||[]).concat(window.TCAL_BOJ_AUTO||[]).forEach(function(e){
   var key = e[0]+"|"+e[5]; if(SEEN[key]) return; SEEN[key] = 1;
   var j = toJst(e[0], e[1], e[2]);
-  ALL.push({ date:j.date, time:j.time, ms:j.ms, allDay:!e[1], cat:e[3], cc:e[4], title:e[5], sub:e[6]||"", star:e[7]||1, sub2:e[8]||null });
+  // Forex Factory のデータがある日は、手入力の経済指標・FOMCはそちらに任せる（重複防止）
+  if((e[3]==="ind" || e[3]==="cb") && FFDAYS[j.date]) return;
+  ALL.push({ date:j.date, time:j.time, ms:j.ms, allDay:!e[1], cat:e[3], cc:CCMAP[e[4]]||e[4], title:e[5], sub:e[6]||"", star:e[7]||1, sub2:e[8]||null });
 });
-var HOL = {};
 (window.TCAL_HOLIDAYS||[]).forEach(function(h){
-  var kind = h[3] || "close";
-  var title = (kind==="half" ? CC[h[0]]+" 短縮取引" : kind==="bond" ? CC[h[0]]+" 債券市場のみ休場" : CC[h[0]]+" 休場") + "（" + h[2] + "）";
-  var sub = kind==="half" ? "13:00 ET 引け（日本時間 翌3:00）" : kind==="bond" ? "株式は通常取引" : (h[0]==="JP" ? "東証 休業日" : h[0]==="US" ? "NYSE・Nasdaq" : "ロンドン市場");
-  var j = toJst(h[1], null, "JST");
-  var o = { date:h[1], time:null, ms:j.ms, allDay:true, cat:"hol", cc:h[0], title:title, sub:sub, star: kind==="close"?3:2, kind:kind, name:h[2] };
-  ALL.push(o);
-  (HOL[h[1]] = HOL[h[1]] || []).push(o);
+  var cc = CCMAP[h[0]]||h[0], kind = h[3] || "close";
+  var title = (kind==="half" ? CC[cc]+" 短縮取引" : kind==="bond" ? CC[cc]+" 債券市場のみ休場" : CC[cc]+" 休場") + "（" + h[2] + "）";
+  var sub = kind==="half" ? "13:00 ET 引け（日本時間 翌3:00）" : kind==="bond" ? "株式は通常取引" : (cc==="JPY" ? "東証 休業日" : cc==="USD" ? "NYSE・Nasdaq" : "ロンドン市場");
+  addHol({ date:h[1], time:null, ms:toJst(h[1], null, "JST").ms, allDay:true, cat:"hol", cc:cc, title:title, sub:sub, star: kind==="close"?3:2, kind:kind, name:h[2] });
+});
+FF.forEach(function(e){
+  if(!CC[e.cc]) return;
+  if(e.hol){
+    if((HOL[e.d]||[]).some(function(h){ return h.cc===e.cc; })) return;
+    var nm = ja(e.title);
+    addHol({ date:e.d, time:null, ms:toJst(e.d, null, "JST").ms, allDay:true, cat:"hol", cc:e.cc, title:CC[e.cc]+" 休日（"+nm+"）", sub:"銀行休業日など（Forex Factory）", star:2, kind:"bank", name:nm });
+    return;
+  }
+  if(e.cc==="JPY" && /BOJ/.test(e.title)) return; // 日銀は専用データを使う
+  var j = toJst(e.d, e.t, "JST");
+  var cat = /Speaks|Rate$|Rate Statement|Policy Statement|Press Conference|Minutes|Votes|Beige Book|Projections|Policy Assessment/.test(e.title) ? "cb" : "ind";
+  var vals = [];
+  if(e.fc) vals.push("予想 "+e.fc);
+  if(e.pv) vals.push("前回 "+e.pv);
+  ALL.push({ date:j.date, time:e.t, ms:j.ms, allDay:!e.t, cat:cat, cc:e.cc, title:ja(e.title), sub:vals.join(" ／ "), star:e.star, ff:1 });
 });
 ALL.sort(function(a,b){ return a.ms - b.ms || (a.allDay?-1:1); });
 
@@ -187,7 +222,7 @@ function label(s){ return (+s.split("-")[1])+"月"+(+s.split("-")[2])+"日（"+W
 function evHtml(e, now){
   var past = !e.allDay && e.ms < now;
   if(e.cat === "hol") return '<div class="ev hol"><div class="bar" style="background:var(--hol)"></div><div class="t">終日</div><div class="b"><b style="color:var(--holtext)">'+esc(e.title)+'</b><span>'+esc(e.sub)+'</span></div></div>';
-  return '<div class="ev'+(past?' past':'')+'"><div class="bar" style="background:'+color(e.cat)+'"></div><div class="t">'+(e.time||"未定")+'</div><div class="b"><b>'+esc(e.title)+'</b><span>'+esc(CAT[e.cat]+(e.sub?" ・ "+e.sub:""))+'</span></div><div class="s">'+stars(e.star)+'</div></div>';
+  return '<div class="ev'+(past?' past':'')+'"><div class="bar" style="background:'+color(e.cat)+'"></div><div class="t">'+(e.time||"未定")+'</div><div class="b"><b>'+esc(e.title)+'</b><span>'+esc(e.cc+" ・ "+CAT[e.cat]+(e.sub?" ・ "+e.sub:""))+'</span></div><div class="s">'+stars(e.star)+'</div></div>';
 }
 
 // ---- 画面状態 ----
@@ -214,7 +249,7 @@ function renderMonth(){
   // 休場帯
   var hs = [];
   for(var d=1; d<=days; d++){ holOn(ymd(y,m,d)).forEach(function(h){ hs.push(h); }); }
-  var band = hs.length ? hs.map(function(h){ return '<div class="hchip"><div><b>'+md(h.date)+'（'+WD[dow(h.date)]+'）</b><span class="cc">'+h.cc+'</span></div><span>'+esc(h.name)+(h.kind==="half"?" 短縮":h.kind==="bond"?" 債券のみ":"")+'</span></div>'; }).join("") : '<div class="empty">今月の休場はありません</div>';
+  var band = hs.length ? hs.map(function(h){ return '<div class="hchip"><div><b>'+md(h.date)+'（'+WD[dow(h.date)]+'）</b><span class="cc">'+h.cc+'</span></div><span>'+esc(h.name)+(h.kind==="half"?" 短縮":h.kind==="bond"?" 債券のみ":h.kind==="bank"&&!/休/.test(h.name)?"（銀行休日）":"")+'</span></div>'; }).join("") : '<div class="empty">今月の休場はありません</div>';
   // 次の★3
   var nb = nextBig();
   var nx = nb ? '<div class="next"><div style="flex:1;min-width:0"><div style="font-size:11px;color:var(--mute)">次の★3</div><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(nb.title)+'</div><div style="font-size:11px;color:var(--mute)">'+label(nb.date)+' '+nb.time+'</div></div><div class="cd" id="cd" data-ms="'+nb.ms+'">'+cd(nb.ms)+'</div></div>' : '';
@@ -229,7 +264,7 @@ function renderMonth(){
     var cats = {}; evs.forEach(function(e){ cats[e.cat]=1; });
     var dots = Object.keys(cats).map(function(c){ return '<i style="background:'+color(c)+'"></i>'; }).join("");
     var cls = "cell"+(w===0?" sun":"")+(w===6?" sat":"")+(hl.length?" hd":"")+(ds===today?" today":"")+(ds===V.sel?" sel":"");
-    var flag = hl.map(function(h){ return h.cc; }).filter(function(v,k,a){ return a.indexOf(v)===k; }).join("·");
+    var flag = hl.map(function(h){ return h.cc; }).filter(function(v,k,a){ return a.indexOf(v)===k; }); flag = flag.length>2 ? flag.slice(0,2).join("·")+"+" : flag.join("·");
     cells += '<button class="'+cls+'" data-d="'+ds+'" aria-label="'+label(ds)+'"><span class="n">'+dn+'</span><span class="f">'+flag+'</span><span class="dots">'+dots+'</span></button>';
   }
   // 選択日
@@ -275,11 +310,11 @@ function renderSet(){
   function chk(group, key, text, sw){ return '<div class="row"><label><input type="checkbox" data-g="'+group+'" data-k="'+key+'"'+(S[group][key]?' checked':'')+'>'+(sw?'<span class="sw" style="background:'+sw+'"></span>':'')+text+'</label></div>'; }
   return '<div class="hdr"><h1 style="padding-left:4px">設定</h1></div><div class="sec">'
     + '<div class="lbl">テーマ</div><div class="themes">'+th+'</div>'
-    + '<div class="lbl">表示する国・市場</div><div class="grp">'+Object.keys(CC).map(function(k){ return chk("cc",k,CC[k]); }).join("")+'</div>'
+    + '<div class="lbl">表示する国・通貨</div><div class="grp" style="display:grid;grid-template-columns:1fr 1fr">'+Object.keys(CC).map(function(k){ return chk("cc",k,CC[k]+' <span style="color:var(--mute);font-size:12px">'+k+'</span>'); }).join("")+'</div>'
     + '<div class="lbl">カテゴリ</div><div class="grp">'+Object.keys(CAT).map(function(k){ return chk("cat",k,CAT[k],color(k)); }).join("")+'</div>'
     + '<div class="lbl">日銀の表示項目</div><div class="grp">'+Object.keys(BOJSUB).map(function(k){ return chk("boj",k,BOJSUB[k]); }).join("")+'</div>'
     + '<div class="lbl">表示する重要度</div><div class="grp"><div class="row"><span>この重要度以上を表示</span><div class="seg">'+[1,2,3].map(function(n){ return '<button data-star="'+n+'" class="'+(S.star===n?'on':'')+'">★'+n+(n<3?'〜':'')+'</button>'; }).join("")+'</div></div></div>'
-    + '<div class="note">時刻はすべて日本時間（米国の夏時間は自動で反映）。<br>データ更新日：'+esc(window.TCAL_UPDATED||"")+(window.TCAL_BOJ_AUTO_UPDATED?'<br>日銀講演予定の自動取得：'+esc(window.TCAL_BOJ_AUTO_UPDATED):'')+'<br>出典：JPX、NYSE、GOV.UK、日本銀行、FRB、米労働統計局（BLS）。日銀の講演予定は日銀HPの公表予定（毎週金曜更新）にもとづきます。予定は変更されることがあるため、重要な判断の前には各公式サイトで確認してください。</div></div>';
+    + '<div class="note">時刻はすべて日本時間（米国の夏時間は自動で反映）。<br>データ更新日：'+esc(window.TCAL_UPDATED||"")+(window.TCAL_FF_UPDATED?'<br>Forex Factory（今週分）の取得：'+esc(window.TCAL_FF_UPDATED):'')+(window.TCAL_BOJ_AUTO_UPDATED?'<br>日銀講演予定の自動取得：'+esc(window.TCAL_BOJ_AUTO_UPDATED):'')+'<br>出典：JPX、NYSE、GOV.UK、日本銀行、FRB、米労働統計局（BLS）、Forex Factory（各国の指標・予想値・前回値。自分用）。日銀の講演予定は日銀HPの公表予定（毎週金曜更新）にもとづきます。予定は変更されることがあるため、重要な判断の前には各公式サイトで確認してください。</div></div>';
 }
 
 var main = document.getElementById("main");
