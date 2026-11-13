@@ -117,6 +117,7 @@ nav svg{width:22px;height:22px}
   <button data-v="set" aria-label="設定"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>設定</button>
 </nav>
 <script src="data.js"></script>
+<script src="boj_auto.js" onerror="void 0"></script>
 <script>
 (function(){
 "use strict";
@@ -150,7 +151,9 @@ function toJst(date, time, tz){
 
 // ---- データ正規化 ----
 var ALL = [];
-(window.TCAL_EVENTS||[]).forEach(function(e){
+var SEEN = {};
+(window.TCAL_EVENTS||[]).concat(window.TCAL_BOJ_AUTO||[]).forEach(function(e){
+  var key = e[0]+"|"+e[5]; if(SEEN[key]) return; SEEN[key] = 1;
   var j = toJst(e[0], e[1], e[2]);
   ALL.push({ date:j.date, time:j.time, ms:j.ms, allDay:!e[1], cat:e[3], cc:e[4], title:e[5], sub:e[6]||"", star:e[7]||1, sub2:e[8]||null });
 });
@@ -277,7 +280,7 @@ function renderSet(){
     + '<div class="lbl">カテゴリ</div><div class="grp">'+Object.keys(CAT).map(function(k){ return chk("cat",k,CAT[k],color(k)); }).join("")+'</div>'
     + '<div class="lbl">日銀の表示項目</div><div class="grp">'+Object.keys(BOJSUB).map(function(k){ return chk("boj",k,BOJSUB[k]); }).join("")+'</div>'
     + '<div class="lbl">表示する重要度</div><div class="grp"><div class="row"><span>この重要度以上を表示</span><div class="seg">'+[1,2,3].map(function(n){ return '<button data-star="'+n+'" class="'+(S.star===n?'on':'')+'">★'+n+(n<3?'〜':'')+'</button>'; }).join("")+'</div></div></div>'
-    + '<div class="note">時刻はすべて日本時間（米国の夏時間は自動で反映）。<br>データ更新日：'+esc(window.TCAL_UPDATED||"")+'<br>出典：JPX、NYSE、GOV.UK、日本銀行、FRB、米労働統計局（BLS）。日銀の講演予定は日銀HPの公表予定（毎週金曜更新）にもとづきます。予定は変更されることがあるため、重要な判断の前には各公式サイトで確認してください。</div></div>';
+    + '<div class="note">時刻はすべて日本時間（米国の夏時間は自動で反映）。<br>データ更新日：'+esc(window.TCAL_UPDATED||"")+(window.TCAL_BOJ_AUTO_UPDATED?'<br>日銀講演予定の自動取得：'+esc(window.TCAL_BOJ_AUTO_UPDATED):'')+'<br>出典：JPX、NYSE、GOV.UK、日本銀行、FRB、米労働統計局（BLS）。日銀の講演予定は日銀HPの公表予定（毎週金曜更新）にもとづきます。予定は変更されることがあるため、重要な判断の前には各公式サイトで確認してください。</div></div>';
 }
 
 var main = document.getElementById("main");
