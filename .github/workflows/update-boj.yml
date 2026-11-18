@@ -1,8 +1,9 @@
-
 name: 日銀講演予定の自動更新
 on:
   schedule:
     - cron: "20 */3 * * *"
+    - cron: "35 22 * * *"
+    - cron: "40 6 * * *"
   workflow_dispatch:
 permissions:
   contents: write
@@ -18,10 +19,13 @@ jobs:
         continue-on-error: true
       - run: python update_ff.py
         continue-on-error: true
+      - run: python update_minkabu.py
+        continue-on-error: true
       - name: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add boj_auto.js || true
           git add ff_auto.js || true
+          git add minkabu_auto.js || true
           git diff --cached --quiet || (git commit -m "予定データを自動更新" && git push)
