@@ -119,15 +119,16 @@ nav svg{width:22px;height:22px}
 <script src="data.js"></script>
 <script src="boj_auto.js" onerror="void 0"></script>
 <script src="ff_auto.js" onerror="void 0"></script>
+<script src="minkabu_auto.js" onerror="void 0"></script>
 <script>
 (function(){
 "use strict";
 var CAT = { boj:"日銀", ind:"経済指標", cb:"中銀・要人", hol:"休場" };
-var CC = { JPY:"日本", USD:"米国", EUR:"ユーロ圏", GBP:"英国", AUD:"豪州", NZD:"NZ", CAD:"カナダ", CHF:"スイス", CNY:"中国" };
+var CC = { JPY:"日本", USD:"米国", EUR:"ユーロ圏", GBP:"英国", AUD:"豪州", NZD:"NZ", CAD:"カナダ", CHF:"スイス", CNY:"中国", ALL:"その他" };
 var CCMAP = { JP:"JPY", US:"USD", UK:"GBP" };
 var BOJSUB = { mpm:"決定会合・総裁会見", gov:"総裁・副総裁の講演・挨拶", member:"審議委員の講演・挨拶・会見", doc:"主な意見・議事要旨" };
 var WD = ["日","月","火","水","木","金","土"];
-var DEF = { theme:"dark", cc:{JPY:true,USD:true,EUR:true,GBP:true,AUD:true,NZD:true,CAD:true,CHF:true,CNY:true}, cat:{boj:true,ind:true,cb:true,hol:true}, boj:{mpm:true,gov:true,member:true,doc:true}, star:1, lang:"ja" };
+var DEF = { theme:"dark", cc:{JPY:true,USD:true,EUR:true,GBP:true,AUD:true,NZD:true,CAD:true,CHF:true,CNY:true,ALL:true}, cat:{boj:true,ind:true,cb:true,hol:true}, boj:{mpm:true,gov:true,member:true,doc:true}, star:1, lang:"ja" };
 
 function load(){ try{ var s = JSON.parse(localStorage.getItem("tcal") || "null"); if(s){ return { theme:s.theme||DEF.theme, cc:Object.assign({},DEF.cc,s.cc), cat:Object.assign({},DEF.cat,s.cat), boj:Object.assign({},DEF.boj,s.boj), star:s.star||1, lang:s.lang||"ja" }; } }catch(e){} return JSON.parse(JSON.stringify(DEF)); }
 function save(){ try{ localStorage.setItem("tcal", JSON.stringify(S)); }catch(e){} }
@@ -204,12 +205,34 @@ var HOL = {};
 function addHol(o){ ALL.push(o); (HOL[o.date] = HOL[o.date] || []).push(o); }
 var FF = window.TCAL_FF || [];
 var FFDAYS = {}; FF.forEach(function(e){ if(!e.hol) FFDAYS[e.d] = 1; });
+// ---- みんかぶ（要人発言・イベントの予定） ----
+var MK = window.TCAL_MK || [];
+var MKCOVER = (window.TCAL_MK_COVER || []).map(function(d){ var p = d.split("-"); var s0 = Date.UTC(+p[0],+p[1]-1,+p[2]) - 9*3600e3; return [s0, s0 + 31.5*3600e3]; });
+function inCover(ms){ return MKCOVER.some(function(w){ return ms >= w[0] && ms < w[1]; }); }
+var MKDAILYDAY = {}; MK.forEach(function(e){ if(e.src==="daily") MKDAILYDAY[e.d] = 1; });
+function mkCC(t){
+  if(/日銀|日本|首相|財務相|財務大臣|片山|官房長官|国会|衆院|参院/.test(t)) return "JPY";
+  if(/FRB|連銀|米|トランプ|ベッセント/.test(t)) return "USD";
+  if(/ECB|ユーロ|独|仏|伊|オーストリア|アイルランド|ギリシャ|スペイン|ベルギー|オランダ|ポルトガル|フィンランド|クロアチア|スロベニア|スロバキア|EU|欧州/.test(t)) return "EUR";
+  if(/英/.test(t)) return "GBP"; if(/豪/.test(t)) return "AUD"; if(/NZ/.test(t)) return "NZD";
+  if(/加中銀|カナダ/.test(t)) return "CAD"; if(/スイス|SNB/.test(t)) return "CHF"; if(/中国|人民銀/.test(t)) return "CNY";
+  return "ALL";
+}
+var MKBOJ = {}; // その日にみんかぶに載っている日銀の人（日銀HP側の重複を消すため）
+MK.forEach(function(e){ if(e.src==="daily"){ var m = e.text.match(/^(.+?)日銀(?:副総裁|総裁|審議委員)/); if(m) (MKBOJ[e.d] = MKBOJ[e.d] || {})[m[1]] = 1; } });
+function bojName(t){ var m = t.match(/^(.+?)(?:審議委員|副総裁|総裁)/); return m ? m[1] : null; }
+var BOJBYDAY = {};
 var SEEN = {};
 (window.TCAL_EVENTS||[]).concat(window.TCAL_BOJ_AUTO||[]).forEach(function(e){
   var key = e[0]+"|"+e[5]; if(SEEN[key]) return; SEEN[key] = 1;
   var j = toJst(e[0], e[1], e[2]);
   // Forex Factory のデータがある日は、手入力の経済指標・FOMCはそちらに任せる（重複防止）
   if((e[3]==="ind" || e[3]==="cb") && FFDAYS[j.date]) return;
+  if(e[3]==="boj" && (e[8]==="gov" || e[8]==="member")){
+    var nm0 = bojName(e[5]);
+    if(nm0 && MKBOJ[j.date] && MKBOJ[j.date][nm0]) return; // みんかぶ側（実際の開始時刻）を優先
+    if(nm0) (BOJBYDAY[j.date] = BOJBYDAY[j.date] || {})[nm0] = 1;
+  }
   ALL.push({ date:j.date, time:j.time, ms:j.ms, allDay:!e[1], cat:e[3], cc:CCMAP[e[4]]||e[4], title:e[5], sub:e[6]||"", titleEn:en(e[5]), subEn:subEn(e[6]), star:e[7]||1, sub2:e[8]||null });
 });
 (window.TCAL_HOLIDAYS||[]).forEach(function(h){
@@ -227,12 +250,24 @@ FF.forEach(function(e){
     return;
   }
   if(e.cc==="JPY" && /BOJ/.test(e.title)) return; // 日銀は専用データを使う
+  if(/Speaks/.test(e.title) && e.t && inCover(toJst(e.d, e.t, "JST").ms)) return; // その日の要人発言はみんかぶを使う
   var j = toJst(e.d, e.t, "JST");
   var cat = /Speaks|(Policy|Cash|Bank|Funds|Refinancing|Overnight|Loan Prime) Rate$|Rate Statement|Policy Statement|Press Conference|Minutes|Votes|Beige Book|Projections|Policy Assessment/.test(e.title) ? "cb" : "ind";
   var vals = [];
   if(e.fc) vals.push("予想 "+e.fc);
   if(e.pv) vals.push("前回 "+e.pv);
   ALL.push({ date:j.date, time:e.t, ms:j.ms, allDay:!e.t, cat:cat, cc:e.cc, title:ja(e.title), titleEn:e.title, sub:vals.join(" ／ "), star:e.star, ff:1 });
+});
+MK.forEach(function(e){
+  if(e.src==="weekly" && MKDAILYDAY[e.d]) return; // 本日の予定（時刻付き）があればそちらを使う
+  var t = e.text, cc = mkCC(t), j = toJst(e.d, e.t, "JST");
+  var boj = /日銀/.test(t), nm = boj ? (t.match(/^(.+?)日銀/)||[])[1] : null;
+  if(boj && e.src==="weekly" && nm && BOJBYDAY[e.d] && BOJBYDAY[e.d][nm]) return;
+  var indLike = /入札|統計|指数|在庫|議事録|GDP|収支|売上高|物価/.test(t) && !/講演|出席|会見|発言|挨拶/.test(t);
+  if(indLike && FFDAYS[e.d]) return; // 指標は Forex Factory 側にある
+  var cat = boj ? "boj" : indLike ? "ind" : "cb";
+  var star = /植田|ウォーシュ|FRB議長|ラガルド|ベイリー英中銀総裁/.test(t) ? 3 : boj || /総裁|議長|首脳|大臣|首相|大統領/.test(t) ? 2 : 1;
+  ALL.push({ date:j.date, time:e.t, ms:j.ms, allDay:!e.t, cat:cat, cc:cc, title:t, sub:e.src==="weekly" ? "時刻未定（みんかぶ・週間予定）" : "", subEn:"", star:star, sub2: boj ? (/審議委員/.test(t) ? "member" : "gov") : null, mk:1 });
 });
 ALL.sort(function(a,b){ return a.ms - b.ms || (a.allDay?-1:1); });
 
@@ -350,7 +385,7 @@ function renderSet(){
     + '<div class="lbl">日銀の表示項目</div><div class="grp">'+Object.keys(BOJSUB).map(function(k){ return chk("boj",k,BOJSUB[k]); }).join("")+'</div>'
     + '<div class="lbl">イベント名の言語</div><div class="grp"><div class="row"><span>表示言語</span><div class="seg">'+[["ja","日本語"],["en","English"]].map(function(l){ return '<button data-lang="'+l[0]+'" class="'+(S.lang===l[0]?'on':'')+'">'+l[1]+'</button>'; }).join("")+'</div></div></div>'
     + '<div class="lbl">表示する重要度</div><div class="grp"><div class="row"><span>この重要度以上を表示</span><div class="seg">'+[1,2,3].map(function(n){ return '<button data-star="'+n+'" class="'+(S.star===n?'on':'')+'">★'+n+(n<3?'〜':'')+'</button>'; }).join("")+'</div></div></div>'
-    + '<div class="note">時刻はすべて日本時間（米国の夏時間は自動で反映）。<br>データ更新日：'+esc(window.TCAL_UPDATED||"")+(window.TCAL_FF_UPDATED?'<br>Forex Factory（今週分）の取得：'+esc(window.TCAL_FF_UPDATED):'')+(window.TCAL_BOJ_AUTO_UPDATED?'<br>日銀講演予定の自動取得：'+esc(window.TCAL_BOJ_AUTO_UPDATED):'')+'<br>出典：JPX、NYSE、GOV.UK、日本銀行、FRB、米労働統計局（BLS）、Forex Factory（各国の指標・予想値・前回値。自分用）。日銀の講演予定は日銀HPの公表予定（毎週金曜更新）にもとづきます。予定は変更されることがあるため、重要な判断の前には各公式サイトで確認してください。</div></div>';
+    + '<div class="note">時刻はすべて日本時間（米国の夏時間は自動で反映）。<br>データ更新日：'+esc(window.TCAL_UPDATED||"")+(window.TCAL_FF_UPDATED?'<br>Forex Factory（今週分）の取得：'+esc(window.TCAL_FF_UPDATED):'')+(window.TCAL_MK_UPDATED?'<br>みんかぶ（要人発言の予定）の取得：'+esc(window.TCAL_MK_UPDATED):'')+(window.TCAL_BOJ_AUTO_UPDATED?'<br>日銀講演予定の自動取得：'+esc(window.TCAL_BOJ_AUTO_UPDATED):'')+'<br>出典：JPX、NYSE、GOV.UK、日本銀行、FRB、米労働統計局（BLS）、Forex Factory（各国の指標・予想値・前回値）、みんかぶFX（要人発言・イベントの予定）。いずれも自分用。日銀の講演予定は日銀HPの公表予定（毎週金曜更新）にもとづきます。予定は変更されることがあるため、重要な判断の前には各公式サイトで確認してください。</div></div>';
 }
 
 var main = document.getElementById("main");
