@@ -1,17 +1,6 @@
 // 自動生成（update_boj.py）。手で編集しないでください
-window.TCAL_BOJ_AUTO_UPDATED = "2026-11-13 23:59";
+window.TCAL_BOJ_AUTO_UPDATED = "2026-11-20 16:40";
 window.TCAL_BOJ_AUTO = [
- [
-  "2026-11-16",
-  "13:00",
-  "JST",
-  "boj",
-  "JP",
-  "高田審議委員 講演",
-  "徳島経済同友会",
-  2,
-  "member"
- ],
  [
   "2026-11-26",
   "10:00",
